@@ -6,7 +6,7 @@ module.exports =
     "database": process.env.DB_DATABASE,
     "host": process.env.DB_HOST,
     "port": process.env.DB_PORT,
-    "dialect": "mysql"
+    "dialect": "mssql"
   },
   "test": {
     "username": process.env.DB_USER,
@@ -14,13 +14,13 @@ module.exports =
     "database": process.env.DB_DATABASE,
     "host": process.env.DB_HOST,
     "port": process.env.DB_PORT,
-    "dialect": "mysql"
+    "dialect": "mssql"
   },
   "production": {
     "username": "root",
     "password": null,
     "database": "database_production",
     "host": "127.0.0.1",
-    "dialect": "mysql"
+    "dialect": "mssql"
   }
 }

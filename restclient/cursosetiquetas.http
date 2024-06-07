@@ -4,7 +4,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hc
 
 ###
 
-GET http://localhost:3000/api/cursosetiquetas/11
+GET http://localhost:3000/api/cursosetiquetas/6
 
 ###
 
@@ -12,22 +12,22 @@ POST http://localhost:3000/api/cursosetiquetas
 Content-Type: application/json
 
 {
-    "idCurso": 31,
+    "idCurso": 1,
     "idEtiqueta": 1
 }
 
 ###
 
-PUT http://localhost:3000/api/cursosetiquetas/10
+PUT http://localhost:3000/api/cursosetiquetas/6
 Content-Type: application/json
 
 {
-    "idCurso": 16,
-    "idEtiqueta": 4
+    "idCurso": 5,
+    "idEtiqueta": 11
 }
 
 ###
 
-DELETE http://localhost:3000/api/cursosetiquetas/19
+DELETE http://localhost:3000/api/cursosetiquetas/4
 
 

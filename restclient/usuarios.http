@@ -7,11 +7,11 @@ POST http://localhost:3000/api/usuarios
 Content-Type: application/json
 
 {
-    "idUsuario": 1,
-    "nombres": "Usuario de prueba",
+    //"idUsuario": 1,
+    "nombres": "Juan",
     "apellidos": "Usuario de prueba",
-    "correoElectronico": "usuarioprueba@gmail.com",
-    "contrasena": "$2a$12$eHNlLAWFcvmfeZG93A/HxOsHfhB/01gfa1MkPfKSnuSSt1Y02T8zq"
+    "correoElectronico": "usuarioprueba1002@gmail.com",
+    "contrasena": "pepito"
 }
 
 ###

@@ -3,7 +3,7 @@ POST http://localhost:3000/api/perfil/verificacion
 Content-Type: application/json
 
 {
-    "correoElectronico": "egamboa020903@gmail.com"
+    "correoElectronico": "usuarioprueba9999@gmail.com"
 }
 
 ### Correo vacío
@@ -38,7 +38,8 @@ Content-Type: application/json
 {
     "nombres": "Prueba",
     "apellidos": "Con correo verificación",
-    "correoElectronico": "egamboa020903@gmail.com",
+    "correoElectronico": "egamboa020903229@gmail.com",
+    //"correoElectronico": "usuarioprueba00@gmail.com",
     "contrasena": "Contrasena1",
     "idsEtiqueta": [1, 3],
     "codigoVerificacion": "5079"
@@ -129,7 +130,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hc
 Content-Type: application/json
 
 {
-    "idUsuario": 4,
+    "idUsuario": 3,
     "nombres": "Enrique PUT",
     "apellidos": "Gamboa Hernández PUT",
     "correoElectronico": "kikgamboa@gmail.com",
@@ -154,6 +155,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hc
 Content-Type: application/json
 
 {
-    "idUsuario": 4,
+    "idUsuario": 3,
     "idsEtiqueta": [1, 2, 3]
 }

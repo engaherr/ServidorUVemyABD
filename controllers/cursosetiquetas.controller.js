@@ -1,17 +1,22 @@
-const { sequelize, DataTypes } = require('sequelize');
-const cursoEtiqueta = require('../models/cursosetiquetas');
-const db = require('../models/index');
+const db = require('../config/database');
 const CodigosRespuesta = require('../utils/codigosRespuesta');
-const cursosetiquetas = db.cursosetiquetas;
-const cursos = db.cursos;
-const etiquetas = db.etiquetas;
-const usuarios = db.usuarios;
+
 let self = {}
 
 self.getAll = async function (req, res){
     try{
-        let data = await cursosetiquetas.findAll({ attributes: ['idCursoEtiqueta', 'idCurso', 'idEtiqueta']})
-        return res.status(200).json(data)
+        await db.connectToDB();
+
+        const obtenerCursosEtiquetas = new db.sql.Request();
+        obtenerCursosEtiquetas.input('idCursosEtiqueta', null);
+        obtenerCursosEtiquetas.input('idCurso', null);
+        obtenerCursosEtiquetas.input('idEtiqueta', null);
+
+        const respuestaCursosEtiquetas = await obtenerCursosEtiquetas.execute('sps_cursos_etiquetas');
+
+        const cursosEtiquetas = respuestaCursosEtiquetas.recordset;
+
+        return res.status(200).json(cursosEtiquetas)
     }catch(error){
         return res.status(500).json({ error: error.message });
     }
@@ -19,13 +24,26 @@ self.getAll = async function (req, res){
 
 self.get = async function(req, res){
     try{
+        
         let id = req.params.id;
-        let data = await cursosetiquetas.findByPk(id, { attributes: ['idCursoEtiqueta', 'idCurso', 'idEtiqueta']});
-        if(data){
-            return res.status(200).json(data)
+
+        await db.connectToDB();
+
+        const obtenerCursosEtiquetas = new db.sql.Request();
+        obtenerCursosEtiquetas.input('idCursosEtiqueta', id);
+        obtenerCursosEtiquetas.input('idCurso', null);
+        obtenerCursosEtiquetas.input('idEtiqueta', null);
+
+        const respuestaCursosEtiquetas = await obtenerCursosEtiquetas.execute('sps_cursos_etiquetas');
+
+        const cursosEtiquetas = respuestaCursosEtiquetas.recordset;
+
+        if(cursosEtiquetas[0]){
+            return res.status(200).json(cursosEtiquetas)
         }else{
            return res.status(404).send()
         }
+
     }catch(error){
         return res.status(500).json({ error: error.message });
     }
@@ -33,11 +51,24 @@ self.get = async function(req, res){
 
 self.create = async function(req, res){
     try{
-        let cursoCreado = await cursosetiquetas.create({
-            idCurso: req.body.idCurso,
-            idEtiqueta: req.body.idEtiqueta,
-        })
-        return res.status(201).json(cursoCreado)
+
+        await db.connectToDB();
+
+        const creacionCursosEtiquetasRequest = new db.sql.Request();
+        creacionCursosEtiquetasRequest.input('idCurso', db.sql.Int, req.body.idCurso);
+        creacionCursosEtiquetasRequest.input('idEtiqueta', db.sql.Int, req.body.idEtiqueta);
+        creacionCursosEtiquetasRequest.output('status', db.sql.Int);
+        creacionCursosEtiquetasRequest.output('result', db.sql.NVarChar(20));
+        creacionCursosEtiquetasRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaCreacionCursosEtiquetas = await creacionCursosEtiquetasRequest.execute('spi_cursos_etiquetas');
+        const { status, result, message } = respuestaCreacionCursosEtiquetas.output;
+
+        if (status !== 200) {
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ message });
+        }
+
+        return res.status(201).json({ idCursosEtiqueta: result })
     }catch(error){
         return res.status(500).json({ error: error.message });
     }
@@ -45,14 +76,29 @@ self.create = async function(req, res){
 
 self.update = async function(req, res){
     try{
-        let id = req.params.id;
-        let body = req.body;
-        let data = await cursosetiquetas.update(body, {where:{idCursoEtiqueta:id}});
-        if(data[0]==0){
-            return res.status(404).send()
-        }else{
-            return res.status(204).send()
-        }
+
+        await db.connectToDB();
+
+        const actualizacionCursosEtiquetasRequest = new db.sql.Request();
+        actualizacionCursosEtiquetasRequest.input('idCursosEtiqueta', db.sql.Int, req.params.id);
+        actualizacionCursosEtiquetasRequest.input('idCurso', db.sql.Int, req.body.idCurso);
+        actualizacionCursosEtiquetasRequest.input('idEtiqueta', db.sql.Int, req.body.idEtiqueta);
+        actualizacionCursosEtiquetasRequest.output('status', db.sql.Int);
+        actualizacionCursosEtiquetasRequest.output('result', db.sql.NVarChar(20));
+        actualizacionCursosEtiquetasRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaActualizacionCursosEtiquetas = await actualizacionCursosEtiquetasRequest.execute('spa_cursos_etiquetas');
+        const { status, result, message } = respuestaActualizacionCursosEtiquetas.output;
+
+        if (status === CodigosRespuesta.NOT_FOUND)
+            return res.status(CodigosRespuesta.NOT_FOUND).json({ message });
+        
+
+        if (status !== CodigosRespuesta.OK)
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ message })
+
+        return res.status(CodigosRespuesta.NO_CONTENT).send();
+
     }catch(error){
         return res.status(500).json({ error: error.message });
     }
@@ -60,17 +106,27 @@ self.update = async function(req, res){
 
 self.delete = async function(req, res){
     try{
-        let id = req.params.id;
-        let data = await cursosetiquetas.findByPk(id);
-        if(!data){
-            return res.status(404).send()
-        }
-        data = await cursosetiquetas.destroy({ where : {idCursoEtiqueta:id}});
-        if(data === 1){
-            return res.status(204).send()
-        }else{
-            return res.status(404).send()
-        }
+
+        await db.connectToDB();
+
+        const eliminacionCursosEtiquetasRequest = new db.sql.Request();
+        eliminacionCursosEtiquetasRequest.input('idCursosEtiqueta', db.sql.Int, req.params.id);
+        eliminacionCursosEtiquetasRequest.output('status', db.sql.Int);
+        eliminacionCursosEtiquetasRequest.output('result', db.sql.NVarChar(20));
+        eliminacionCursosEtiquetasRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaEliminacionCursosEtiquetas = await eliminacionCursosEtiquetasRequest.execute('spe_cursos_etiquetas');
+        const { status, result, message } = respuestaEliminacionCursosEtiquetas.output;
+
+        if (status === CodigosRespuesta.NOT_FOUND)
+            return res.status(CodigosRespuesta.NOT_FOUND).json({ message });
+        
+
+        if (status !== CodigosRespuesta.OK)
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ message })
+
+        return res.status(CodigosRespuesta.NO_CONTENT).send();
+
     }catch(error){
         return res.status(500).json({ error: error.message });
     }

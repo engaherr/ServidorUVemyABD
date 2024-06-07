@@ -1,7 +1,7 @@
-const { sequelize, DataTypes } = require('sequelize');
+//const { sequelize, DataTypes } = require('sequelize');
 const { Op } = require('sequelize');
 const CodigosRespuesta = require('../utils/codigosRespuesta');
-const usuario = require('../models/usuarios');
+const { sql } = require('../config/database');
 const db = require('../models/index');
 const usuarios = db.usuarios;
 const cursos = db.cursos;
@@ -42,17 +42,39 @@ self.get = async function(req, res){
     }
 }
 
-self.create = async function(req, res){
-    try{
-        let data = await usuarios.create({
-            idUsuario: req.body.idUsuario,
-            nombres: req.body.nombres,
-            apellidos: req.body.apellidos,
-            correoElectronico: req.body.correoElectronico,
-            contrasena: req.body.contrasena
-        })
-        return res.status(CodigosRespuesta.CREATED).json(data);
-    }catch(error){
+self.create = async function(req, res) {
+    try {
+        const { nombres, apellidos, correoElectronico, contrasena } = req.body;
+
+        // Ejecutar el procedimiento almacenado con los parámetros proporcionados
+        const results = await sql.query`
+            DECLARE @status INT;
+            DECLARE @result NVARCHAR(20);
+            DECLARE @message NVARCHAR(MAX);
+
+            EXEC spi_usuarios
+                @nombres = ${nombres},
+                @apellidos = ${apellidos},
+                @correoElectronico = ${correoElectronico},
+                @contrasena = ${contrasena},
+                @status = @status OUTPUT,
+                @result = @result OUTPUT, 
+                @message = @message OUTPUT;
+
+            SELECT @status AS status, @result AS result, @message AS message;
+        `;
+
+        // Verificar el resultado del procedimiento almacenado
+        const { status, result, message } = results.recordset[0];
+
+        if (status === 200) {
+            return res.status(CodigosRespuesta.CREATED).json({ idUsuario: result });
+        } else {
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ message });
+        }
+
+    } catch (error) {
+        console.error('Error al crear usuario:', error);
         return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json({ error: error.message });
     }
 }
