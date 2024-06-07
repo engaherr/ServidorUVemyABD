@@ -1,19 +1,36 @@
 GET http://localhost:3000/api/etiquetas
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3ByaW1hcnlzaWQiOjE1LCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9lbWFpbGFkZHJlc3MiOiJ1c3VhcmlvcHJ1ZWJhMTVAZ21haWwuY29tIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiVXN1YXJpbyBkZSBwcnVlYmExNSIsImlzcyI6IlVWZW15U2Vydmlkb3JKV1QiLCJhdWQiOiJVc3Vhcmlvc1VWZW15SldUIiwiaWF0IjoxNzE2NjY0MDI3LCJleHAiOjE3MTY2NjUyMjd9.xE9dNa_MjZCLW9URvx6TBMExjVnSWq8jc8CAuO2ZsKs
 
 ###
 
+//Cambiar por nombre nuevo
 POST http://localhost:3000/api/etiquetas
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3ByaW1hcnlzaWQiOjE1LCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9lbWFpbGFkZHJlc3MiOiJ1c3VhcmlvcHJ1ZWJhMTVAZ21haWwuY29tIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiVXN1YXJpbyBkZSBwcnVlYmExNSIsImlzcyI6IlVWZW15U2Vydmlkb3JKV1QiLCJhdWQiOiJVc3Vhcmlvc1VWZW15SldUIiwiaWF0IjoxNzE2NjY0MDI3LCJleHAiOjE3MTY2NjUyMjd9.xE9dNa_MjZCLW9URvx6TBMExjVnSWq8jc8CAuO2ZsKs
 
 {
-    "nombre": "Derecho mercantil"
+    "nombre": "Derecho" 
 }
 
 ####
 
-DELETE http://localhost:3000/api/etiquetas/38
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3ByaW1hcnlzaWQiOjE1LCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9lbWFpbGFkZHJlc3MiOiJ1c3VhcmlvcHJ1ZWJhMTVAZ21haWwuY29tIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiVXN1YXJpbyBkZSBwcnVlYmExNSIsImlzcyI6IlVWZW15U2Vydmlkb3JKV1QiLCJhdWQiOiJVc3Vhcmlvc1VWZW15SldUIiwiaWF0IjoxNzE2NjY0MDI3LCJleHAiOjE3MTY2NjUyMjd9.xE9dNa_MjZCLW9URvx6TBMExjVnSWq8jc8CAuO2ZsKs
+//Nombre de etiqueta repetida
+POST http://localhost:3000/api/etiquetas
+Content-Type: application/json
 
+{
+    "nombre": "Programación" 
+}
+
+###
+// Etiqueta con usuarios asociados  
+DELETE http://localhost:3000/api/etiquetas/1
+
+###
+
+//Etiqueta con cursos asociados
+DELETE http://localhost:3000/api/etiquetas/2
+
+###
+
+//Borrado exitoso
+DELETE http://localhost:3000/api/etiquetas/20
 ###
