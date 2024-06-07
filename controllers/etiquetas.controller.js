@@ -1,33 +1,40 @@
 const { etiquetas } = require('../models');
 const CodigosRespuesta = require('../utils/codigosRespuesta');
+const db = require('../config/database');
+
 let self = {}
 
 self.getAll = async function(req, res){
   try{
-      let data = await etiquetas.findAll({ attributes: ['idEtiqueta', 'nombre']})
-      return res.status(CodigosRespuesta.OK).json(data)
+    await db.connectToDB();
+    const request = new db.sql.Request();
+    const respuesta = await request.execute('sps_get_etiquetas');
+    return res.status(CodigosRespuesta.OK).json(respuesta.recordset);
   }catch(error){
-      return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json(error)
+    console.log(error);
+    return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json(error)
   }
 }
 
 self.create = async function(req, res) {
   try {
-    let nombreEtiqueta = req.body.nombre;
-    let nombreNormalizado = nombreEtiqueta
-        .toLowerCase() 
-        .trim()
-        .replace(/\s+/g, ' ');
-    
-    const etiquetaExistente = await etiquetas.findOne({ where: { nombre: nombreNormalizado } });
-    if (etiquetaExistente) {
-      return res.status(CodigosRespuesta.BAD_REQUEST).json({ error: 'Ya existe una etiqueta con el mismo nombre' });
+    await db.connectToDB();
+    const request = new db.sql.Request();
+    request.input('nombre', db.sql.NVarChar, req.body.nombre);
+    request.output('status', db.sql.Int);
+    request.output('result', db.sql.Int);
+    request.output('message', db.sql.NVarChar(db.sql.MAX));
+
+    const respuesta = await request.execute('spi_etiquetas');
+    const { status, result, message } = respuesta.output;
+
+    if(status !== 200){
+      return res.status(CodigosRespuesta.BAD_REQUEST).json({ message });
     }
 
-    let data = await etiquetas.create({
-      nombre: req.body.nombre
+    return res.status(CodigosRespuesta.CREATED).json({
+      idEtiqueta: result,
     });
-    return res.status(CodigosRespuesta.CREATED).json(data);
   } catch (error) {
     return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json({ error: error.message });
   }
@@ -35,24 +42,20 @@ self.create = async function(req, res) {
 
 self.delete = async function(req, res) {
   try {
-    let id = req.params.id;
-    let etiqueta = await etiquetas.findByPk(id);
+    await db.connectToDB();
+    const request = new db.sql.Request();
+    request.input('id_etiqueta', db.sql.Int, req.params.id);
+    request.output('status', db.sql.Int);
+    request.output('result', db.sql.Int);
+    request.output('message', db.sql.NVarChar(db.sql.MAX));
 
-    if (!etiqueta) {
-      return res.status(CodigosRespuesta.NOT_FOUND).send();
+    const respuesta = await request.execute('spe_etiquetas');
+    const { status, message } = respuesta.output;
+
+    if (status !== 200) {
+      return res.status(CodigosRespuesta.BAD_REQUEST).json({ message });
     }
 
-    const cursosAsociados = await etiqueta.getCursos();
-    if (cursosAsociados.length > 0) {
-      return res.status(CodigosRespuesta.FORBIDDEN).json({ error: 'La etiqueta está asociada a uno o más cursos' });
-    }
-
-    const usuariosAsociados = await etiqueta.getUsuarios();
-    if (usuariosAsociados.length > 0) {
-      return res.status(CodigosRespuesta.FORBIDDEN).json({ error: 'La etiqueta está asociada a uno o más usuarios' });
-    }
-
-    await etiqueta.destroy({ where: { idEtiqueta: id } });
     return res.status(CodigosRespuesta.NO_CONTENT).send();
   } catch (error) {
     return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json({ error: error.message });
