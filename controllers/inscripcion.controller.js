@@ -4,66 +4,84 @@ const CodigosRespuesta = require('../utils/codigosRespuesta');
 
 let self = {};
 
-self.inscribirse = async function(req, res){
+self.inscribirse = async function(req, res) {
     const idUsuario = req.tokenDecodificado[claimTypes.Id];
     const idCurso = req.body.idCurso;
 
-    if(idCurso != req.params.id){
+    if (idCurso != req.params.id) {
         return res.status(CodigosRespuesta.BAD_REQUEST).send("IdCurso no válido");
     }
 
-    try{
-        const cursoExistente = await cursos.findByPk(idCurso, { attributes: [ 'idUsuario']});
-        if(cursoExistente == null){
-            return res.status(CodigosRespuesta.NOT_FOUND).send("Curso no existente");
-        }
-    
-        if(cursoExistente.idUsuario == idUsuario){
-            return res.status(CodigosRespuesta.BAD_REQUEST).send("El profesor no se puede inscribir a su propio curso");
-        }
-    
-        const usuarioEnCurso = await usuarioscursos.findAll({attributes: ['idUsuario'], 
-            where: { idCurso: idCurso, idUsuario: idUsuario}});
-    
-        if(usuarioEnCurso != null && usuarioEnCurso.length > 0){
-            return res.status(CodigosRespuesta.BAD_REQUEST).send("Usuario registrado previamente en el curso");
-        }
-    
-        const inscrito = await usuarioscursos.create({
-            idCurso: idCurso,
-            idUsuario: idUsuario
-        });
+    try {
+        await sql.connect(config); 
 
-        res.status(CodigosRespuesta.CREATED).json(inscrito);
-    }catch(error){
-        console.log(error);
+        const result = await sql.query(`
+            DECLARE @status INT;
+            DECLARE @message NVARCHAR(MAX);
+
+            EXEC spi_inscribirse_en_curso 
+                @idUsuario = ${idUsuario},
+                @idCurso = ${idCurso},
+                @status = @status OUTPUT,
+                @message = @message OUTPUT;
+
+            SELECT @status AS status, @message AS message;
+        `);
+
+        const { status, message } = result.recordset[0];
+
+        if (status === 201) {
+            res.status(CodigosRespuesta.CREATED).send(message);
+        } else {
+            res.status(status).send(message);
+        }
+    } catch (error) {
+        console.error("Error al inscribirse en el curso:", error);
         res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send();
+    } finally {
+        sql.close(); 
     }
 }
 
-self.calificarCurso = async function(req, res){
+self.calificarCurso = async function(req, res) {
     const idUsuario = req.tokenDecodificado[claimTypes.Id];
     const idCurso = req.body.idCurso;
+    const calificacion = req.body.calificacion;
 
-    if(idCurso != req.params.idCurso){
+    if (idCurso != req.params.idCurso) {
         return res.status(CodigosRespuesta.BAD_REQUEST).send("IdCurso no válido");
     }
 
-    try{
-        const usuarioEnCurso = await usuarioscursos.findOne({attributes: ['idUsuarioCurso', 'idCurso', 'idUsuario', 'calificacion'], 
-            where: { idCurso: idCurso, idUsuario: idUsuario}});
-    
-        if(usuarioEnCurso == null){
-            return res.status(CodigosRespuesta.UNAUTHORIZED).send("El usuario no está inscrito en el curso");
+    try {
+        await sql.connect(config); 
+
+        const result = await sql.query(`
+            DECLARE @status INT;
+            DECLARE @message NVARCHAR(MAX);
+            DECLARE @calificacion INT;
+
+            EXEC spa_calificar_curso 
+                @idUsuario = ${idUsuario},
+                @idCurso = ${idCurso},
+                @calificacion = ${calificacion},
+                @status = @status OUTPUT,
+                @message = @message OUTPUT;
+
+            SELECT @status AS status, @message AS message;
+        `);
+
+        const { status, message } = result.recordset[0];
+
+        if (status === 201) {
+            res.status(CodigosRespuesta.CREATED).send(message);
+        } else {
+            res.status(status).send(message);
         }
-
-        usuarioEnCurso.calificacion = req.body.calificacion;
-        await usuarioEnCurso.save();
-
-        res.status(CodigosRespuesta.CREATED).json(usuarioEnCurso);
-    }catch(error){
-        console.log(error);
+    } catch (error) {
+        console.error("Error al calificar el curso:", error);
         res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send();
+    } finally {
+        sql.close(); 
     }
 }
 
@@ -71,27 +89,30 @@ self.obtenerCalificacionUsuarioCurso = async function(req, res){
     const idCurso = req.params.idCurso;
     const idUsuario = req.tokenDecodificado[claimTypes.Id];
     try{
-        const cursoExistente = await cursos.findByPk(idCurso, { attributes: [ 'idUsuario']});
-        if(cursoExistente == null){
-            return res.status(CodigosRespuesta.NOT_FOUND).send("Curso no existente");
-        }
+        await mssql.connect(config);
+        const request = new mssql.Request();
 
-        const usuarioEnCurso = await usuarioscursos.findOne({attributes: ['idCurso','idUsuario', 'calificacion'], 
-            where: { idCurso: idCurso, idUsuario: idUsuario}});
-    
-        if(usuarioEnCurso == null){
-            return res.status(CodigosRespuesta.UNAUTHORIZED).send("Usuario no está registrado en el curso");
+        request.input('idUsuario', mssql.Int, idUsuario);
+        request.input('idCurso', mssql.Int, idCurso);
+        request.output('calificacion', mssql.Int);
+        request.output('status', mssql.Int);
+        request.output('message', mssql.NVarChar);
+
+        const result = await request.execute('sp_obtener_calificacion_usuario_curso');
+
+        const { calificacion, status, message } = result.output;
+
+        if (status === 200) {
+            return res.status(CodigosRespuesta.OK).json({ idCurso, idUsuario, calificacion });
+        } else {
+            return res.status(status).send(message);
         }
-        if(usuarioEnCurso.calificacion == null){
-            usuarioEnCurso.calificacion = 0;
-        }
-        return res.status(CodigosRespuesta.OK).json(usuarioEnCurso);
-    }catch(error){
+    } catch(error){
         console.log(error);
-        res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send();
+        return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send();
+    } finally {
+        await mssql.close();
     }
-
-    res.status(CodigosRespuesta.OK).send();
 }
 
 
