@@ -1,38 +1,31 @@
 const claimTypes = require('../config/claimtypes');
 const { comentarios, usuarios, clases } = require('../models');
 const CodigosRespuesta = require('../utils/codigosRespuesta');
+const db = require('../config/database');
+
 let self = {}
 
 self.get = async function (req, res) {
     try {
-        let { idClase } = req.params;
+        await db.connectToDB();
+        const request = new db.sql.Request();
+        request.input('id_clase', db.sql.Int, req.params.idClase);
+        request.output('status', db.sql.Int);
+        request.output('message', db.sql.NVarChar(db.sql.MAX));
 
-        const clase = await clases.findOne({
-            where: {
-                idClase: idClase
-            }
-        });
+        const respuesta = await request.execute('sps_get_comentarios_clase');
+        const { status, message } = respuesta.output;
 
-        if (!clase) {
-            return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalles: ["Clase no existente"] });
+        if (status !== 200) {
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ message });
         }
 
-        let data = await comentarios.findAll({
-            where: {
-                idClase: idClase
-            },
-            include: [{
-                model: usuarios,
-                as: 'usuario',
-                attributes: ['nombres', 'apellidos']
-            }]
-        });
+        const data = respuesta.recordset;
 
         // Crear un diccionario para mapear los comentarios por idComentario
         let comentariosMap = {};
         data.forEach(comentario => {
-            let { idComentario, fecha, descripcion, idClase } = comentario;
-            let nombreUsuario = comentario.usuario ? `${comentario.usuario.nombres} ${comentario.usuario.apellidos}` : null;
+            let { idComentario, fecha, descripcion, idClase, nombreUsuario } = comentario;
             comentariosMap[idComentario] = {
                 idComentario,
                 idClase,
@@ -45,8 +38,8 @@ self.get = async function (req, res) {
 
         // Agrupar respuestas dentro de los comentarios correspondientes
         data.forEach(comentario => {
-            if (comentario.respondeAComentario) {
-                let parentComentario = comentariosMap[comentario.respondeAComentario];
+            if (comentario.respuestaAComentario) {
+                let parentComentario = comentariosMap[comentario.respuestaAComentario];
                 if (parentComentario) {
                     parentComentario.respuestas.push(comentariosMap[comentario.idComentario]);
                 }
@@ -60,7 +53,7 @@ self.get = async function (req, res) {
 
         // Filtrar solo los comentarios que no son respuestas y ordenar por fecha (del más nuevo al más viejo)
         let dataFormateada = Object.values(comentariosMap)
-            .filter(comentario => !data.some(c => c.idComentario === comentario.idComentario && c.respondeAComentario))
+            .filter(comentario => !data.some(c => c.idComentario === comentario.idComentario && c.respuestaAComentario))
             .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
         res.status(CodigosRespuesta.OK).json(dataFormateada);
@@ -69,73 +62,45 @@ self.get = async function (req, res) {
     }
 }
 
-
 self.create = async function (req, res) {
     try {
-        const { idClase, idUsuario, descripcion, respondeAComentario } = req.body;
-        const idUsuarioToken = req.tokenDecodificado[claimTypes.Id];
+        const { idClase, idUsuario, descripcion } = req.body;
+        const respuestaAComentario = req.body.respondeAComentario || null;
+        // const idUsuarioToken = req.tokenDecodificado[claimTypes.Id];
 
-        const clase = await clases.findOne({
-            where: { idClase: idClase }
-        });
+        // if (idUsuarioToken !== idUsuario) {
+        //     return res.status(CodigosRespuesta.UNAUTHORIZED).json({ detalles: ['Usuario incorrecto'] });
+        // }
 
-        if (!clase) {
-            return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalles: ["Clase no existente"] });
+        await db.connectToDB();
+        const request = new db.sql.Request();
+
+        request.input('id_clase', db.sql.Int, idClase);
+        request.input('id_usuario', db.sql.Int, idUsuario);
+        request.input('descripcion', db.sql.NVarChar(350), descripcion);
+
+        if (respuestaAComentario !== null) {
+            request.input('respuesta_a_comentario', db.sql.Int, respuestaAComentario);
+        } else {
+            request.input('respuesta_a_comentario', db.sql.Int, null);
+        }        
+        
+        request.output('result', db.sql.Int);
+        request.output('status', db.sql.Int);
+        request.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuesta = await request.execute('spi_comentarios');
+
+        const { result, status, message } = respuesta.output;
+
+        if (status !== 200) {
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalles: [message] });
         }
 
-        const usuario = await usuarios.findOne({
-            where: { idUsuario: idUsuario },
-            raw: true,
-            attributes: ['idUsuario']
-        });
-
-        if (!usuario || idUsuarioToken != idUsuario) {
-            return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalles: ["Usuario incorrecto"] });
-        }
-
-        let nuevoComentario = {
-            idClase: idClase,
-            idUsuario: idUsuario,
-            descripcion: descripcion,
-            fecha: new Date(),
-            respondeAComentario: null 
-        };
-
-        if (respondeAComentario) {
-            const respuestaAComentario = await comentarios.findOne({
-                where: { idComentario: respondeAComentario }
-            });
-
-            if (!respuestaAComentario) {
-                return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalles: ["Comentario al que responde no existente"] });
-            }
-
-            if(respuestaAComentario.idClase != idClase){
-                return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalles: ["Comentario al que responde no pertenece a la misma clase"] });
-            }
-
-            if(respuestaAComentario.respondeAComentario !== null){
-                return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalles: ["No se puede responder a un comentario que es respuesta a otro comentario"] });
-            }
-
-            nuevoComentario.respondeAComentario = respondeAComentario;
-        }
-
-        await comentarios.create(nuevoComentario);
-
-        const comentarioCreado = await comentarios.findOne({
-            where: {
-                idClase: idClase,
-                idUsuario: idUsuario,
-                descripcion: descripcion,
-            }
-        });
-
-        return res.status(CodigosRespuesta.CREATED).json({
-            idComentario: comentarioCreado.idComentario
-        });
+        return res.status(CodigosRespuesta.CREATED).json({ idComentario: result });
     } catch (error) {
-        return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json({ detalles: [error.message] });
+        console.log(error);
+        return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json({ detalles: [error] });
     }
 }
 
