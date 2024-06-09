@@ -1,81 +1,26 @@
-const { clases, cursos, documentos, tiposarchivos } = require('../models');
 const CodigosRespuesta = require('../utils/codigosRespuesta');
+const db = require('../config/database');
+
 let self = {}
 
-self.obtenerPorId = async function(req, res){        
+self.obtenerPorId = async function(req, res){
     const idClase = req.params.idClase;
     try{
-        let clase = await clases.findOne({ where: {idClase: idClase}, attributes: ['idClase', 'nombre', 'descripcion', 'idCurso']})
-        if(clase == null){
-            return res.status(CodigosRespuesta.NOT_FOUND).send("Clase no encontrada");
-        }
-        let documentosClase = await documentos.findAll({ 
-            where: {idClase: idClase, '$tiposarchivos.nombre$': "application/pdf"}, 
-            attributes: ['idDocumento'],
-            include: { model: tiposarchivos, as: 'tiposarchivos', attributes: []}
-        });
+        await db.connectToDB();
+        const request = new db.sql.Request();
+        request.input('id_clase', db.sql.Int, idClase);
+        request.output('status', db.sql.Int);
+        request.output('message', db.sql.NVarChar(db.sql.MAX));
 
-        let documentosID = [];
-        for(var item of documentosClase){
-            documentosID.push(item.idDocumento);
-        }
-        clase.dataValues.documentosId = documentosID;
+        const respuesta = await request.execute('sps_get_detalles_clase');
+        const { status, message } = respuesta.output;
 
-        let videoClase = await documentos.findOne({ 
-            where: {idClase: idClase, '$tiposarchivos.nombre$': "video/mp4"}, 
-            attributes: ['idDocumento'],
-            include: { model: tiposarchivos, as: 'tiposarchivos', attributes: []}
-        });
-
-        if(videoClase != null){
-            clase.dataValues.videoId = videoClase.dataValues.idDocumento;
+        if (status !== 200) {
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalle: [message] });
         }
+
+        const data = respuesta.recordset[0];
     
-        return res.status(CodigosRespuesta.OK).json(clase);
-    }catch(error){
-        console.log(error);
-        return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json(error)
-    }
-}
-
-self.obtenerPorCurso = async function(req, res){
-    try{
-        let rol = req.query.rol;
-        if(req.params.idCurso == null) {
-            return res.status(CodigosRespuesta.NOT_FOUND).json({ message : "No especificó el curso"})
-        }
-        if(rol == null) {
-            return res.status(CodigosRespuesta.NOT_FOUND).json({ message : "No se ha especificado un rol"})
-        }
-        if(isNaN(req.params.idCurso)){
-            return res.status(CodigosRespuesta.NOT_FOUND).send("Error al actualizar el curso, el id no es valido");
-        }
-        let cursoRecuperado = await cursos.findByPk(req.params.idCurso);
-        if(cursoRecuperado==null){
-            return res.status(CodigosRespuesta.NOT_FOUND).send("No se encontró el curso");
-        }
-        let data = await clases.findAll({ where: {idCurso: req.params.idCurso}, attributes: ['idClase', 'nombre']})
-        if(rol == "Estudiante" ||rol == "Usuario") {
-            let documentosPorClase = [];
-            await Promise.all(data.map(async (clases) => {
-                let documentosClase = await documentos.findAll({ 
-                    where: {idClase: clases.idClase}, 
-                    attributes: ['idDocumento', 'idClase', 'archivo'],
-                });
-                
-                if (documentosClase.length > 0) {
-                    documentosPorClase.push({ clase: clases, documentos: documentosClase });
-                }
-            }));
-
-            data = data.filter((clases) => {
-                return documentosPorClase.some((item) => item.clase.idClase === clases.idClase);
-            });
-        }
-        if(!data || data.length === 0){
-            return res.status(CodigosRespuesta.NOT_FOUND).json("No se encontró clases asociadas al curso");
-        }
-
         return res.status(CodigosRespuesta.OK).json(data);
     }catch(error){
         console.log(error);
@@ -85,15 +30,23 @@ self.obtenerPorCurso = async function(req, res){
 
 self.crear = async function(req, res){
     try{
-        const data = await clases.create({
-            nombre: req.body.nombre,
-            descripcion: req.body.descripcion,
-            idCurso: req.body.idCurso
-        });
+        await db.connectToDB();
+        const request = new db.sql.Request();
+        request.input('nombre', db.sql.NVarChar(150), req.body.nombre);
+        request.input('descripcion', db.sql.NVarChar(660), req.body.descripcion);
+        request.input('id_curso', db.sql.Int, req.body.idCurso);
+        request.output('status', db.sql.Int);
+        request.output('result', db.sql.Int);
+        request.output('message', db.sql.NVarChar(db.sql.MAX));
 
-        if(data == null) return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send("Error al crear la clase");
+        const respuesta = await request.execute('spi_clases');
+        const { status, result, message } = respuesta.output;
 
-        return res.status(CodigosRespuesta.CREATED).json(data);
+        if (status !== 200) {
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalle: [message] });
+        }
+
+        return res.status(CodigosRespuesta.CREATED).json({idClase: result});
     }catch(error){
         console.log(error);
         return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json(error);
@@ -107,16 +60,22 @@ self.actualizar = async function(req, res){
     }
 
     try{
-        let clase = await clases.findOne({ where: { idClase: idClase }});
-        if(clase == null){
-            return res.status(CodigosRespuesta.NOT_FOUND).send("Clase no existente");
-        }
-        
-        clase.nombre = req.body.nombre;
-        clase.descripcion = req.body.descripcion;
-        await clase.save();       
+        await db.connectToDB();
+        const request = new db.sql.Request();
+        request.input('id_clase', db.sql.Int, idClase);
+        request.input('nombre', db.sql.NVarChar(150), req.body.nombre);
+        request.input('descripcion', db.sql.NVarChar(660), req.body.descripcion);
+        request.output('status', db.sql.Int);
+        request.output('message', db.sql.NVarChar(db.sql.MAX));
 
-        return res.status(CodigosRespuesta.OK).json(clase);
+        const respuesta = await request.execute('spa_clases');
+        const { status, message } = respuesta.output;
+
+        if (status !== 200) {
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalle: [message] });
+        }
+
+        return res.status(CodigosRespuesta.NO_CONTENT).send();
     }catch(error){
         console.log(error);
         return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json(error);
@@ -126,16 +85,23 @@ self.actualizar = async function(req, res){
 self.eliminar = async function(req, res){        
     const idClase = req.params.idClase;
     try{
-        let clase = await clases.findOne({ where: {idClase: idClase}, attributes: ['idClase', 'nombre', 'descripcion', 'idCurso']})
-        if(clase == null){
-            return res.status(CodigosRespuesta.NOT_FOUND).send("Clase no encontrada");
+        await db.connectToDB();
+        const request = new db.sql.Request();
+        request.input('id_clase', db.sql.Int, idClase);
+        request.output('status', db.sql.Int);
+        request.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuesta = await request.execute('spe_clases');
+        const { status, message } = respuesta.output;
+
+        if (status !== 200) {
+            return res.status(CodigosRespuesta.BAD_REQUEST).json({ detalle: [message] });
         }
-        
-        await clase.destroy();
-        return res.status(CodigosRespuesta.OK).send()
+
+        return res.status(CodigosRespuesta.NO_CONTENT).send();
     }catch(error){
         console.log(error);
-        return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json(error)
+        return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json(error);
     }
 }
 

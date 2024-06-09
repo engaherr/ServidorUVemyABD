@@ -6,9 +6,9 @@ const validarFormatoPeticion = require('../middlewares/validadorpeticiones.middl
 const validarCamposPeticion = require('../middlewares/validadorformatopeticiones.middleware');
 const autorizacion = require('../middlewares/autorizacion.middleware');
 
-router.get('/:idClase', checkSchema(recuperarClaseSchema()), validarFormatoPeticion,  autorizacion.autorizar(), autorizacion.autorizarIdClase("Profesor,Estudiante"), clases.obtenerPorId);
-
-router.get('/curso/:idCurso', clases.obtenerPorCurso);
+router.get('/:idClase', checkSchema(recuperarClaseSchema()), validarFormatoPeticion,  
+    autorizacion.autorizar(), autorizacion.autorizarIdClase("Profesor,Estudiante"), 
+    clases.obtenerPorId);
 
 router.post('/', validarCamposPeticion(crearClaseSchema()), checkSchema(crearClaseSchema()), validarFormatoPeticion, autorizacion.autorizar(), autorizacion.autorizarIdCurso("Profesor"), clases.crear);
 
