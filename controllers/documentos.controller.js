@@ -1,4 +1,4 @@
-const db = require('../models/index');
+const db = require('../config/database');
 const dbdocumentos = db.documentos;
 const cursos = db.cursos;
 const { documentos, tiposarchivos, clases } = require('../models');
@@ -48,23 +48,42 @@ self.borrarArchivoDelCurso = async function(documentoId){
     }
 }
 
-self.crearArchivoDelCurso = async function(documento, idCurso, transaccion){
+self.crearArchivoDelCurso = async function(documento, idCurso){
     try{
-        const idTipoArch = await obtenerIdTipoArchivoPNG();
-        if(idTipoArch == 0){
-            return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send("Error al crear el tipo archivo");
-        } 
-        let documentoCreado  = await dbdocumentos.create({
-            archivo: documento.buffer,
-            nombre: "Miniatura del curso "+idCurso,
-            idTipoArchivo: idTipoArch,
-            idCurso: idCurso,
-            idClase: null
-        }, { transaction: transaccion })
-        if(documentoCreado==null){
+        await db.connectToDB();
+
+        const creacionArchivoCursoRequest = new db.sql.Request();
+        creacionArchivoCursoRequest.input('archivo', db.sql.VarBinary, documento.buffer);
+        creacionArchivoCursoRequest.input('nombre', db.sql.NVarChar, "Miniatura del curso "+ idCurso);
+        creacionArchivoCursoRequest.input('idTipoArchivo', db.sql.Int, 1);
+        creacionArchivoCursoRequest.output('status', db.sql.Int);
+        creacionArchivoCursoRequest.output('result', db.sql.NVarChar(20));
+        creacionArchivoCursoRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaCreacionArchivoCurso = await creacionArchivoCursoRequest.execute('spi_archivos');
+        const { status, result, message } = respuestaCreacionArchivoCurso.output;
+
+        if (status !== 200) {
+            return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: message };
+        }
+
+        const creacionArchivoRelacionesRequest = new db.sql.Request();
+        creacionArchivoRelacionesRequest.input('idArchivo', db.sql.Int, result);
+        creacionArchivoRelacionesRequest.input('idPadre', db.sql.Int, idCurso);
+        creacionArchivoRelacionesRequest.input('tipo', db.sql.NVarChar, 'Curso');
+        creacionArchivoRelacionesRequest.output('status', db.sql.Int);
+        creacionArchivoRelacionesRequest.output('result', db.sql.NVarChar(20));
+        creacionArchivoRelacionesRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaCreacionArchivoRelaciones = await creacionArchivoRelacionesRequest.execute('spi_archivos_relaciones');
+        const { status2, result2, message2 } = respuestaCreacionArchivoRelaciones.output;
+
+
+        if(status2 !== 200){
             return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: "Error al crear el documento" };
         }
-        return { status: CodigosRespuesta.CREATED, message: documentoCreado };
+
+        return { status: CodigosRespuesta.CREATED, message: 'Documento Creado' };
     }catch(error){
         console.log(error);
         return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: error.message };
@@ -109,28 +128,6 @@ async function obtenerIdTipoArchivoPDF(){
         if(tipoArchivoVideo == null){
             const tipoNuevo = await tiposarchivos.create({
                 nombre: "application/pdf"
-            });
-            if(tipoNuevo == null){
-                idTipoArchivo = 0;
-            }else{
-                idTipoArchivo = tipoNuevo.idTipoArchivo;
-            }
-        }else{
-            idTipoArchivo = tipoArchivoVideo.dataValues.idTipoArchivo;
-        }
-    }catch(error){
-        idTipoArchivo = 0;
-    }
-    return idTipoArchivo;
-}
-
-async function obtenerIdTipoArchivoPNG(){
-    let idTipoArchivo;
-    try{
-        const tipoArchivoVideo = await tiposarchivos.findOne({ where: {nombre: "image/png"}, attributes: ['idTipoArchivo']});
-        if(tipoArchivoVideo == null){
-            const tipoNuevo = await tiposarchivos.create({
-                nombre: "image/png"
             });
             if(tipoNuevo == null){
                 idTipoArchivo = 0;

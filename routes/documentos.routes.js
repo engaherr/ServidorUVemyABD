@@ -12,8 +12,6 @@ router.get('/clase/:idDocumento', checkSchema(idDocumentoSchema()), validarForma
 
 router.post('/clase', subirArchivoPDF.single("file"), checkSchema(crearDocumentoSchema()), validarFormatoPeticion, validarFile(), autorizacion.autorizar(), autorizacion.autorizarIdClase("Profesor"), documentos.crear);
 
-//router.put('/clase/:idDocumento', subirArchivoPDF.single("file"), checkSchema(actualizarDocumentoSchema()), validarFormatoPeticion, validarFile(), documentos.actualizarDocumentoClase);
-
 router.delete('/clase/:idDocumento', checkSchema(idDocumentoSchema()), validarFormatoPeticion, autorizacion.autorizar(), autorizacion.autorizarIdDocumento("Profesor"), documentos.eliminarDocumentoClase);
 
 module.exports = router;
