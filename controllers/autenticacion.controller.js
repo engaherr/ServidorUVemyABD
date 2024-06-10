@@ -1,6 +1,4 @@
 const bcrypt = require('bcrypt');
-const sequelize = require('../config/database');
-const { usuarios, usuariosetiquetas } = require('../models');
 const { generaToken, tiempoRestanteToken } = require('../services/jwttoken.service');
 const CodigosRespuesta = require('../utils/codigosRespuesta');
 const db = require('../config/database');

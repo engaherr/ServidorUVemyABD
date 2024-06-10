@@ -1,5 +1,5 @@
 const cursoModel = require('../models/cursos');
-const db = require('../models/index');
+const db = require('../config/database');
 const cursosetiquetas = require('../services/cursosetiquetas.service.');
 const usuarioscursos = require('./usuarioscursos.controller');
 const documentos = require('./documentos.controller');
@@ -12,6 +12,7 @@ const etiquetasModel = db.etiquetas;
 const cursosetiquetasModel = db.cursosetiquetas;
 const usuariocurso = db.usuarioscursos;
 const sequelize = db.sequelize;
+
 let self = {}
 
 self.getAll = async function (req, res){
@@ -28,10 +29,12 @@ self.get = async function(req, res){
         if(isNaN(req.params.idCurso)){
             return res.status(CodigosRespuesta.NOT_FOUND).send("Error al recuperar el curso, el id no es valido");
         }
+
         let idCurso = req.params.idCurso;
         let cursoRecuperado = await curso.findByPk(idCurso, {
             attributes: ['descripcion', 'objetivos', 'requisitos', 'idUsuario']
         });
+
         if (cursoRecuperado == null) {
             return res.status(CodigosRespuesta.NOT_FOUND).send("No se encontró el curso");
         }
@@ -65,6 +68,7 @@ self.get = async function(req, res){
         console.log(profesor);
         const idUsuario = req.tokenDecodificado[claimTypes.Id];
         const esEstudiante = await esEstudianteCurso(idCurso, idUsuario);
+
         if(cursoRecuperado.idUsuario==idUsuario)
         {
             rol = "Profesor";
@@ -91,50 +95,60 @@ self.get = async function(req, res){
 }
 
 self.create = async function(req, res){
-    let transaccion;
     try{
         const idUsuario = req.tokenDecodificado[claimTypes.Id];
+        
         if(isNaN(idUsuario)){
             return res.status(CodigosRespuesta.NOT_FOUND).json("Error al crear el curso, el idUsuario no es valido");
         }
-        let usuarioRecuperado = await usuario.findByPk(idUsuario);
-        if(usuarioRecuperado==null){
+
+        const { titulo, descripcion, objetivos, requisitos } = req.body;
+
+        await db.connectToDB();
+
+        const creacionCursoRequest = new db.sql.Request();
+        creacionCursoRequest.input('idUsuario', db.sql.Int, req.body.idUsuario);
+        creacionCursoRequest.input('titulo', db.sql.NVarChar, titulo);
+        creacionCursoRequest.input('descripcion', db.sql.NVarChar, descripcion);
+        creacionCursoRequest.input('objetivos', db.sql.NVarChar, objetivos);
+        creacionCursoRequest.input('requisitos', db.sql.NVarChar, requisitos);
+        creacionCursoRequest.output('status', db.sql.Int);
+        creacionCursoRequest.output('result', db.sql.NVarChar(20));
+        creacionCursoRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaCreacionCurso = await creacionCursoRequest.execute('spi_cursos');
+        const { status, result, message } = respuestaCreacionCurso.output;
+
+        if (status === 404) {
             return res.status(CodigosRespuesta.NOT_FOUND).json("No se encontró el usuario");
         }
-        transaccion = await sequelize.transaction();
-        
-        let cursoCreado = await curso.create({
-            titulo: req.body.titulo,
-            descripcion: req.body.descripcion,
-            objetivos: req.body.objetivos,
-            requisitos: req.body.requisitos,
-            idUsuario: idUsuario
-        }, { transaction: transaccion })
 
-        if(cursoCreado==null){
-            await transaccion.rollback();
+        if (status !== 200) {
             return res.status(CodigosRespuesta.BAD_REQUEST).json("Error al crear el curso");
         }
 
-        let archivoCreado = await crearArchivoDelCurso(req.file, cursoCreado.idCurso, transaccion);
+        let archivoCreado = await crearArchivoDelCurso(req.file, result);
 
-        if(archivoCreado.status!=CodigosRespuesta.CREATED){
-            await transaccion.rollback();
+        if(archivoCreado.status != CodigosRespuesta.CREATED){
             return res.status(CodigosRespuesta.BAD_REQUEST).json("Error al crear el archivo")
         }
 
+        // Hasta aca bien
+
         for (let etiquetaId of req.body.etiquetas) {
             if(isNaN(etiquetaId)){
-                await transaccion.rollback();
                 return res.status(CodigosRespuesta.NOT_FOUND).json("Error al crear una de las etiquetas, el id no es valido");
             }
+
             let etiquetaCreada = await crearCursosEtiquetas(cursoCreado.idCurso, etiquetaId, transaccion);
+            
             if(etiquetaCreada.status!=CodigosRespuesta.CREATED){
                 await transaccion.rollback();
                 return res.status(CodigosRespuesta.BAD_REQUEST).json("Error al crear una de las etiquetas")
             }
         }
-        await transaccion.commit();
+
+
         return res.status(CodigosRespuesta.CREATED).json(cursoCreado)
     }catch(error){
         if (transaccion && !transaccion.finished) {
@@ -253,8 +267,8 @@ async function eliminarEtiquetasDelCurso(cursoId, transaccion) {
     return resultado;
 }
 
-async function crearArchivoDelCurso(documento, idCurso, transaccion) {
-    const resultado = await documentos.crearArchivoDelCurso(documento,idCurso, transaccion);
+async function crearArchivoDelCurso(documento, idCurso) {
+    const resultado = await documentos.crearArchivoDelCurso(documento, idCurso);
     return resultado;
 }
 
