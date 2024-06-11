@@ -81,43 +81,84 @@ self.registrarUsuario = async function (req, res) {
 self.subirFotoPerfilUsuario = async function (req, res) {
     try {
         const { idUsuario } = req.body;
-        const imagen = req.file;
-        const tokenDecodificado = req.tokenDecodificado;
 
-        if (idUsuario != tokenDecodificado[claimTypes.Id])
-            return res.status(CodigosRespuesta.BAD_REQUEST).send();
+        const documento = req.file;
 
-        const usuario = await usuarios.findByPk(idUsuario);
-        if (!usuario)
-            return res.status(CodigosRespuesta.BAD_REQUEST).send({ detalles: ["Usuario no encontrado"] });
+        await db.connectToDB();
 
-        const imagenBuffer = imagen.buffer;
-        usuario.imagen = imagenBuffer;
-        console.log(usuario);
-        await usuario.save();
+        const creacionArchivoUsuarioRequest = new db.sql.Request();
+        creacionArchivoUsuarioRequest.input('archivo', db.sql.VarBinary, documento.buffer);
+        creacionArchivoUsuarioRequest.input('idTipoArchivo', db.sql.Int, 1);
+        creacionArchivoUsuarioRequest.output('status', db.sql.Int);
+        creacionArchivoUsuarioRequest.output('result', db.sql.NVarChar(20));
+        creacionArchivoUsuarioRequest.output('message', db.sql.NVarChar(db.sql.MAX));
 
-        return res.status(CodigosRespuesta.OK).send({ idUsuario: usuario.idUsuario, detalles: ["Foto de perfil actualizada"] });
+        const respuestaCreacionArchivoUsuario = await creacionArchivoUsuarioRequest.execute('spi_archivos');
+        var { status, result, message } = respuestaCreacionArchivoUsuario.output;
+
+        if (status !== 200) {
+            return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: message };
+        }
+
+        const creacionArchivoRelacionesRequest = new db.sql.Request();
+        creacionArchivoRelacionesRequest.input('idArchivo', db.sql.Int, result);
+        creacionArchivoRelacionesRequest.input('idPadre', db.sql.Int, idUsuario);
+        creacionArchivoRelacionesRequest.input('tipo', db.sql.NVarChar, 'Usuario');
+        creacionArchivoRelacionesRequest.output('status', db.sql.Int);
+        creacionArchivoRelacionesRequest.output('result', db.sql.NVarChar(20));
+        creacionArchivoRelacionesRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaCreacionArchivoRelaciones = await creacionArchivoRelacionesRequest.execute('spi_archivos_relaciones');
+        var { status, result, message } = respuestaCreacionArchivoRelaciones.output;
+
+        if(status === 404){
+            return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: "El Usuario no existe" };
+        }
+
+        if(status !== 200){
+            return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: "Error al subir la imagen" };
+        }
+
+        return res.status(CodigosRespuesta.OK).send({ idUsuario: idUsuario, detalles: ["Foto de perfil actualizada"] });
     } catch (error) {
-        console.log(error);
+        console.log(error.stack);
         return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send({ detalles: [error.message] });
     }
 }
 
 self.obtenerFotoPerfil = async function (req, res) {
     try {
-        const idUsuario = req.tokenDecodificado[claimTypes.Id];
-        const usuario = await usuarios.findByPk(idUsuario, {
-            attributes: ['imagen']
-        });
+        const idUsuario = req.body.idUsuario;
 
-        if (!usuario)
-            return res.status(CodigosRespuesta.NOT_FOUND).send({ detalles: ["Usuario no encontrado"] });
+        await db.connectToDB();
 
-        if (!usuario.imagen)
-            return res.status(CodigosRespuesta.NOT_FOUND).send();
+        const obtenerIdArchivo = new db.sql.Request();
+        obtenerIdArchivo.input('idPadre', db.sql.Int, idUsuario);
+        obtenerIdArchivo.input('tipo', db.sql.NVarChar, 'Usuario');
+
+
+        const respuestaIdArchivo = await obtenerIdArchivo.execute('sps_archivos_relaciones');
+
+        const archivo = respuestaIdArchivo.recordset;
+
+        if (archivo.length === 0) {
+            return res.status(CodigosRespuesta.NOT_FOUND).send("El usuario no tiene una imagen asociada.");
+        }
+
+        const obtenerArchivo = new db.sql.Request();
+        obtenerArchivo.input('idArchivo', db.sql.Int, archivo[0].idArchivo);
+
+
+        const respuestaArchivo = await obtenerArchivo.execute('sps_archivos');
+
+        const archivoUsuario = respuestaArchivo.recordset;
+
+        if (archivoUsuario.length === 0) {
+            return res.status(CodigosRespuesta.NOT_FOUND).send("El usuario no tiene una imagen asociada.");
+        }
 
         res.set('Content-Type', 'image/png');
-        return res.status(CodigosRespuesta.OK).send(usuario.imagen);
+        return res.status(CodigosRespuesta.OK).send(archivoUsuario[0].archivo);
     } catch (error) {
         console.log(error);
         return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send({ detalles: [error.message] });
