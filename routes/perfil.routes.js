@@ -10,14 +10,14 @@ const { validarFoto } = require('../schemas/perfil.schema');
 
 router.post('/verificacion', checkSchema(esquemas.solicitarVerificacionCorreoEsquema()), validarFormatoPeticion, validarCamposPeticion(esquemas.solicitarVerificacionCorreoEsquema()), perfil.solicitarCodigoVerificacionCorreo);
 
-router.post('/registro', checkSchema(esquemas.registrarUsuarioEsquema()), validarFormatoPeticion, validarCamposPeticion(esquemas.registrarUsuarioEsquema()), autorizarVerificacionCorreo(), perfil.registrarUsuario);
+router.post('/registro', checkSchema(esquemas.registrarUsuarioEsquema()), validarFormatoPeticion, validarCamposPeticion(esquemas.registrarUsuarioEsquema()), /*autorizarVerificacionCorreo()*/ perfil.registrarUsuario);
 
-router.put('/foto', autorizar(), subirArchivoPDF.single("imagen"), checkSchema(esquemas.fotoPerfilSchema()), validarFormatoPeticion, validarCamposPeticion(esquemas.fotoPerfilSchema()),validarFoto(), perfil.subirFotoPerfilUsuario);
+router.put('/foto', /*autorizar()*/ subirArchivoPDF.single("file"), /*checkSchema(esquemas.fotoPerfilSchema()), validarFormatoPeticion, validarCamposPeticion(esquemas.fotoPerfilSchema()),validarFoto(),*/ perfil.subirFotoPerfilUsuario);
 
-router.put('/', autorizar(), checkSchema(esquemas.actualizarPerfilSchema()), validarFormatoPeticion, validarCamposPeticion(esquemas.actualizarPerfilSchema()), perfil.actualizarPerfilUsuario);
+router.put('/', /*autorizar(),*/ checkSchema(esquemas.actualizarPerfilSchema()), validarFormatoPeticion, validarCamposPeticion(esquemas.actualizarPerfilSchema()), perfil.actualizarPerfilUsuario);
 
-router.put('/usuarioetiquetas', autorizar(), checkSchema(esquemas.actualizarEtiquetasSchema()), validarFormatoPeticion, validarCamposPeticion(esquemas.actualizarEtiquetasSchema()), perfil.actualizarEtiquetasUsuario);
+router.put('/usuarioetiquetas', /*autorizar()*,*/ checkSchema(esquemas.actualizarEtiquetasSchema()), validarFormatoPeticion, validarCamposPeticion(esquemas.actualizarEtiquetasSchema()), perfil.actualizarEtiquetasUsuario);
 
-router.get('/foto', autorizar(), perfil.obtenerFotoPerfil);
+router.get('/foto', /*autorizar(),*/ perfil.obtenerFotoPerfil);
 
 module.exports = router;
