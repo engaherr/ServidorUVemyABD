@@ -8,23 +8,26 @@ let self = {}
 self.obtenerArchivoPDF = async function(req, res){
     const idDocumento = req.params.idDocumento;
     try{
-        let data = await dbdocumentos.findByPk(idDocumento, { 
-            attributes: ['idDocumento', 'archivo', 'nombre', 'idTipoArchivo', 'idCurso', 'idClase'],
-            include: { model: tiposarchivos, as: 'tiposarchivos'}
-        })
 
-        if(data == null){
-            return res.status(CodigosRespuesta.NOT_FOUND).send("No se encontró el archivo")
+        const obtenerArchivo = new db.sql.Request();
+        obtenerArchivo.input('idArchivo', db.sql.Int, idDocumento);
+
+        const respuestaArchivo = await obtenerArchivo.execute('sps_archivos');
+
+        const archivoUsuario = respuestaArchivo.recordset;
+
+        if (archivoUsuario.length === 0) {
+            return res.status(CodigosRespuesta.NOT_FOUND).send("No se encontro el archivo.");
         }
-        
-        if(data.dataValues.tiposarchivos.nombre != "application/pdf"){
+
+        if(archivoUsuario[0].idTipoArchivo != 2){
             return res.status(CodigosRespuesta.BAD_REQUEST).send("No puede enviar un documento que no sea PDF");
         }
 
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename=' + data.nombre +'.pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=' + archivoUsuario[0].nombre +'.pdf');
 
-        return res.status(CodigosRespuesta.OK).send(data.archivo);
+        return res.status(CodigosRespuesta.OK).send(archivoUsuario[0].archivo);
     }catch(error){
         return res.status(CodigosRespuesta.BAD_REQUEST).json(error);
     }
@@ -32,16 +35,22 @@ self.obtenerArchivoPDF = async function(req, res){
 
 self.borrarArchivoDelCurso = async function(documentoId){
     try{
-        let id = documentoId;
-        let data = await cursos.findByPk(id);
-        if(!data){
-            return 404
-        }
-        data = await dbdocumentos.destroy({ where : {idDocumento:id}});
-        if(data >= 1 ){
-            return 204
+
+        await db.connectToDB();
+
+        const borrarArchivo = new db.sql.Request();
+        borrarArchivo.input('idArchivo', db.sql.Int, documentoId);
+        borrarArchivo.output('status', db.sql.Int);
+        borrarArchivo.output('result', db.sql.NVarChar(20));
+        borrarArchivo.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaEliminacionArchivo = await borrarArchivo.execute('spe_archivos');
+        const { status, result, message } = respuestaEliminacionArchivo.output;
+
+        if(status != 200 ){
+            return CodigosRespuesta.NOT_FOUND;
         }else{
-            return 404
+            return CodigosRespuesta.OK;
         }
     }catch(error){
         return { status: 500, message: error.message };
@@ -135,20 +144,22 @@ self.crear = async function(req, res){
 self.eliminarDocumentoClase = async function(req, res){
     const idDocumento = req.params.idDocumento;
     try{
-        const documento = await documentos.findByPk(idDocumento, { 
-            attributes: ['idDocumento', 'archivo', 'nombre', 'idTipoArchivo', 'idCurso', 'idClase'],
-            include: { model: tiposarchivos, as: 'tiposarchivos'}
-        });
 
-        if(documento == null){
+        await db.connectToDB();
+
+        const borrarArchivo = new db.sql.Request();
+        borrarArchivo.input('idArchivo', db.sql.Int, idDocumento);
+        borrarArchivo.output('status', db.sql.Int);
+        borrarArchivo.output('result', db.sql.NVarChar(20));
+        borrarArchivo.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaEliminacionArchivo = await borrarArchivo.execute('spe_archivos');
+        const { status, result, message } = respuestaEliminacionArchivo.output;
+
+
+        if(status == CodigosRespuesta.NOT_FOUND){
             return res.status(CodigosRespuesta.NOT_FOUND).send("No existe el documento");
         }
-        
-        if(documento.dataValues.tiposarchivos.nombre != "application/pdf"){
-            return res.status(CodigosRespuesta.BAD_REQUEST).send("No puede eliminar un documento que no sea PDF");
-        }
-
-        await documento.destroy();
 
         return res.status(CodigosRespuesta.NO_CONTENT).send();
     }catch(error){
@@ -182,7 +193,5 @@ self.actualizarArchivoDelCurso = async function(idDocumento, documento){
         return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message:error.message  }
     }
 }
-
-
 
 module.exports = self;

@@ -148,7 +148,6 @@ self.obtenerFotoPerfil = async function (req, res) {
         const obtenerArchivo = new db.sql.Request();
         obtenerArchivo.input('idArchivo', db.sql.Int, archivo[0].idArchivo);
 
-
         const respuestaArchivo = await obtenerArchivo.execute('sps_archivos');
 
         const archivoUsuario = respuestaArchivo.recordset;
