@@ -1,49 +1,47 @@
-const db = require('../models/index');
+const db = require('../config/database');
 const CodigosRespuesta = require('../utils/codigosRespuesta');
-const cursosetiquetas = db.cursosetiquetas;
-const cursos = db.cursos;
-const etiquetas = db.etiquetas;
-const usuarios = db.usuarios;
 
-const crearCursosEtiquetas = async function(idCurso, idEtiqueta, transaccion){
+const crearCursosEtiquetas = async function(idCurso, idEtiqueta){
     try{
-        let etiquetaRecuperada = await etiquetas.findByPk(idEtiqueta);
-        if(etiquetaRecuperada==null){
-            return { status: CodigosRespuesta.NOT_FOUND, message: "No se encontró la etiqueta curso" }
-        }
-        let etiquetaCreada = await cursosetiquetas.create({
-            idCurso: idCurso,
-            idEtiqueta: idEtiqueta,
-        }, { transaction: transaccion })
+        await db.connectToDB();
 
-        if(etiquetaCreada==null){
-            return { status: CodigosRespuesta.BAD_REQUEST, message: "Error al crear la etiqueta curso" };;
+        const insertarEtiquetasRequest = new db.sql.Request();
+        insertarEtiquetasRequest.input('idCurso', db.sql.Int, idCurso);
+        insertarEtiquetasRequest.input('idEtiqueta', db.sql.Int, idEtiqueta);
+        insertarEtiquetasRequest.output('status', db.sql.Int);
+        insertarEtiquetasRequest.output('result', db.sql.NVarChar(20));
+        insertarEtiquetasRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaCreacionEtiquetas = await insertarEtiquetasRequest.execute('spi_cursos_etiquetas');
+        const { status, result, message } = respuestaCreacionEtiquetas.output;
+
+        if (status !== 200) {
+            return { status: CodigosRespuesta.NOT_FOUND, message: "Error al crear la relación entre curso y etiqueta" };
         }
 
-        return { status: CodigosRespuesta.CREATED, message:etiquetaCreada }
+        return { status: CodigosRespuesta.CREATED, message: result }
+
     }catch(error){
-        console.log(error);
-        return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message:error  }
+        return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: error  }
     }
 }
 
 
-const borrarEtiquetasDelCurso = async function(cursoId, transaccion){
+const borrarEtiquetasDelCurso = async function(cursoId){
     try{
-        let id = cursoId;
-        let data = await cursos.findByPk(id);
-        if(!data){
-            return 404
-        }
-        data = await cursosetiquetas.destroy({ 
-            where: { idCurso: id },
-            transaction: transaccion 
-        });
-        if(data >= 1 ){
-            return 204
-        }else{
-            return 404
-        }
+        await db.connectToDB();
+
+        const eliminarEtiquetasRequest = new db.sql.Request();
+        eliminarEtiquetasRequest.input('idCurso', db.sql.Int, cursoId);
+        eliminarEtiquetasRequest.output('status', db.sql.Int);
+        eliminarEtiquetasRequest.output('result', db.sql.NVarChar(20));
+        eliminarEtiquetasRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaEliminacionEtiquetas = await eliminarEtiquetasRequest.execute('spe_cursos_etiquetas');
+        const { status, result, message } = respuestaEliminacionEtiquetas.output;
+
+        return { status: CodigosRespuesta.NO_CONTENT, message:result }
+
     }catch(error){
         return { status: 500, message: error.message };
     }

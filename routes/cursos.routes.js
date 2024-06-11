@@ -11,13 +11,13 @@ const { subirArchivoPDF } = require('../middlewares/upload.middleware')
 
 const autorizar = autorizacion.autorizar;
 
-router.get('/:idCurso',autorizar(), cursos.get);
+router.get('/:idCurso', /*autorizar()*/ cursos.get);
 
-router.post('/', subirArchivoPDF.single("file"), autorizar(), checkSchema(crearCursoSchema()), validarFormatoPeticion, validarCamposPeticion(crearCursoSchema()), cursos.create);
+router.post('/', subirArchivoPDF.single("file"), /*autorizar(), checkSchema(crearCursoSchema()), validarFormatoPeticion, validarCamposPeticion(crearCursoSchema()),*/ cursos.create);
 
-router.put('/:idCurso', subirArchivoPDF.single("file"), autorizacion.autorizar(), autorizacion.autorizarIdCurso("Profesor"), checkSchema(actualizarCursoSchema()), validarFormatoPeticion, validarCamposPeticion(actualizarCursoSchema()),  cursos.update);
+router.put('/:idCurso', subirArchivoPDF.single("file"), /*autorizacion.autorizar(), autorizacion.autorizarIdCurso("Profesor"),*/ checkSchema(actualizarCursoSchema()), validarFormatoPeticion, validarCamposPeticion(actualizarCursoSchema()),  cursos.update);
 
-router.delete('/:idCurso',autorizacion.autorizar(), autorizacion.autorizarIdCurso("Profesor"), cursos.delete);
+router.delete('/:idCurso', /*autorizacion.autorizar(), autorizacion.autorizarIdCurso("Profesor"),*/ cursos.delete);
 
 router.get('/estadisticas/:idCurso', checkSchema(estadisticaCursoSchema()), validarFormatoPeticion, autorizacion.autorizar(), autorizacion.autorizarIdCurso("Profesor"), cursosEstadisticas.obtenerEstadisticasCurso);
 

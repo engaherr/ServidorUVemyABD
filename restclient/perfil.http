@@ -38,7 +38,7 @@ Content-Type: application/json
 {
     "nombres": "Prueba",
     "apellidos": "Con correo verificación",
-    "correoElectronico": "egamboa020903229@gmail.com",
+    "correoElectronico": "egamboa020903129@gmail.com",
     //"correoElectronico": "usuarioprueba00@gmail.com",
     "contrasena": "Contrasena1",
     "idsEtiqueta": [1, 3],
@@ -155,6 +155,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hc
 Content-Type: application/json
 
 {
-    "idUsuario": 3,
+    "idUsuario": 18,
     "idsEtiqueta": [1, 2, 3]
 }

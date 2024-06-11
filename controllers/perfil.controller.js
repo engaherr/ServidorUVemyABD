@@ -163,11 +163,7 @@ self.actualizarPerfilUsuario = async function (req, res) {
 
 self.actualizarEtiquetasUsuario = async function (req, res) {
     try {
-        const idUsuario = req.tokenDecodificado[claimTypes.Id];
         const { idsEtiqueta } = req.body;
-
-        if(idUsuario != req.body.idUsuario)
-            return res.status(CodigosRespuesta.BAD_REQUEST).send({ detalles: ["IdUsuario no coincide con el token"] });
 
         await db.connectToDB();
 

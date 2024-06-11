@@ -61,7 +61,7 @@ self.crearArchivoDelCurso = async function(documento, idCurso){
         creacionArchivoCursoRequest.output('message', db.sql.NVarChar(db.sql.MAX));
 
         const respuestaCreacionArchivoCurso = await creacionArchivoCursoRequest.execute('spi_archivos');
-        const { status, result, message } = respuestaCreacionArchivoCurso.output;
+        var { status, result, message } = respuestaCreacionArchivoCurso.output;
 
         if (status !== 200) {
             return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: message };
@@ -76,10 +76,9 @@ self.crearArchivoDelCurso = async function(documento, idCurso){
         creacionArchivoRelacionesRequest.output('message', db.sql.NVarChar(db.sql.MAX));
 
         const respuestaCreacionArchivoRelaciones = await creacionArchivoRelacionesRequest.execute('spi_archivos_relaciones');
-        const { status2, result2, message2 } = respuestaCreacionArchivoRelaciones.output;
+        var { status, result, message } = respuestaCreacionArchivoRelaciones.output;
 
-
-        if(status2 !== 200){
+        if(status !== 200){
             return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message: "Error al crear el documento" };
         }
 
@@ -92,55 +91,45 @@ self.crearArchivoDelCurso = async function(documento, idCurso){
 
 self.crear = async function(req, res){
     try{
-        const idTipoArch = await obtenerIdTipoArchivoPDF();
-        if(idTipoArch == 0) return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send("Error al crear el documento");
+        const { file, nombre, idClase } = req.body;
+        const archivoBuffer = file.buffer;
 
-        const archivoBuffer = req.file.buffer;
+        await db.connectToDB();
 
-        const data = await documentos.create({
-            archivo: archivoBuffer,
-            nombre: req.body.nombre,
-            idClase: req.body.idClase,
-            idTipoArchivo: idTipoArch
-        });
+        const creacionArchivoRequest = new db.sql.Request();
+        creacionArchivoRequest.input('archivo', db.sql.VarBinary, archivoBuffer);
+        creacionArchivoRequest.input('nombre', db.sql.NVarChar, nombre);
+        creacionArchivoRequest.input('idTipoArchivo', db.sql.Int, 2);
+        creacionArchivoRequest.output('status', db.sql.Int);
+        creacionArchivoRequest.output('result', db.sql.NVarChar(20));
+        creacionArchivoRequest.output('message', db.sql.NVarChar(db.sql.MAX));
 
-        if(data == null){
+        const respuestaCreacionArchivo = await creacionArchivoRequest.execute('spi_archivos');
+        const { status, result, message } = respuestaCreacionArchivo.output;
+
+        if (status !== 200) {
             return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send("Error al crear el documento " + req.body.nombre);
-        } 
-
-        const respuesta = {
-            idDocumento: data.idDocumento,
-            nombre: data.nombre,
-            idClase: data.idClase,
-            idTipoArchivo: data.idTipoArchivo
         }
 
-        return res.status(CodigosRespuesta.CREATED).json(respuesta);
+        const creacionArchivoRelacionesRequest = new db.sql.Request();
+        creacionArchivoRelacionesRequest.input('idArchivo', db.sql.Int, result);
+        creacionArchivoRelacionesRequest.input('idPadre', db.sql.Int, idClase);
+        creacionArchivoRelacionesRequest.input('tipo', db.sql.NVarChar, 'Clase');
+        creacionArchivoRelacionesRequest.output('status', db.sql.Int);
+        creacionArchivoRelacionesRequest.output('result', db.sql.NVarChar(20));
+        creacionArchivoRelacionesRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaCreacionArchivoRelaciones = await creacionArchivoRelacionesRequest.execute('spi_archivos_relaciones');
+        const { status2, result2, message2 } = respuestaCreacionArchivoRelaciones.output;
+
+        if(status2 == null){
+            return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).send("Error al crear el documento " + req.body.nombre);
+        }
+
+        return res.status(CodigosRespuesta.CREATED).json({ idDocumento: result });
     }catch(error){
         return res.status(CodigosRespuesta.INTERNAL_SERVER_ERROR).json(error)
     }
-}
-
-async function obtenerIdTipoArchivoPDF(){
-    let idTipoArchivo;
-    try{
-        const tipoArchivoVideo = await tiposarchivos.findOne({ where: {nombre: "application/pdf"}, attributes: ['idTipoArchivo']});
-        if(tipoArchivoVideo == null){
-            const tipoNuevo = await tiposarchivos.create({
-                nombre: "application/pdf"
-            });
-            if(tipoNuevo == null){
-                idTipoArchivo = 0;
-            }else{
-                idTipoArchivo = tipoNuevo.idTipoArchivo;
-            }
-        }else{
-            idTipoArchivo = tipoArchivoVideo.dataValues.idTipoArchivo;
-        }
-    }catch(error){
-        idTipoArchivo = 0;
-    }
-    return idTipoArchivo;
 }
 
 self.eliminarDocumentoClase = async function(req, res){
@@ -168,22 +157,27 @@ self.eliminarDocumentoClase = async function(req, res){
     }
 }
 
-self.actualizarArchivoDelCurso = async function(idDocumento, documento, transaccion){
+self.actualizarArchivoDelCurso = async function(idDocumento, documento){
     try{
-        let data = await dbdocumentos.update(
-            { archivo: documento.buffer }, 
-            {where:{idDocumento:idDocumento}, 
-            fields: ['archivo'],
-            transaction: transaccion
-        });
-        
-        if(data[0]==0){
-            console.log("NOT_FOUND");
-            return CodigosRespuesta.NOT_FOUND
-        }else{
-            console.log("NO_CONTENT");
+
+        await db.connectToDB();
+
+        const actualizacionArchivoCursoRequest = new db.sql.Request();
+        actualizacionArchivoCursoRequest.input('idArchivo', db.sql.Int, idDocumento);
+        actualizacionArchivoCursoRequest.input('archivo', db.sql.VarBinary, documento.buffer);
+        actualizacionArchivoCursoRequest.output('status', db.sql.Int);
+        actualizacionArchivoCursoRequest.output('result', db.sql.NVarChar(20));
+        actualizacionArchivoCursoRequest.output('message', db.sql.NVarChar(db.sql.MAX));
+
+        const respuestaActualizacionArchivoCurso = await actualizacionArchivoCursoRequest.execute('spa_archivos');
+        var { status, result, message } = respuestaActualizacionArchivoCurso.output;
+
+        if (status !== 200) {
+            return CodigosRespuesta.NOT_FOUND;
+        } else {
             return CodigosRespuesta.NO_CONTENT
         }
+        
     }catch(error){
         return { status: CodigosRespuesta.INTERNAL_SERVER_ERROR, message:error.message  }
     }
